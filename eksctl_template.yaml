@@ -1,0 +1,30 @@
+# dev-cluster.yaml
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  version: "1.25"
+  name: $EKS_CLUSTER_NAME
+  region: $AWS_REGION
+
+# enable IAM roles for service accounts and OIDC provider
+iam:
+  withOIDC: true
+
+# add managed group for worker nodes
+managedNodeGroups:
+  - name: dev-ng-1-workers
+    labels: { role: workers }
+    instanceType: c5.xlarge
+    desiredCapacity: 1
+
+# add EBS CSI driver (as an addon)
+addons:
+- name: aws-ebs-csi-driver
+  resolveConflicts: preserve
+  wellKnownPolicies:
+    autoScaler: false
+    awsLoadBalancerController: false
+    certManager: false
+    ebsCSIController: true
+    efsCSIController: false
