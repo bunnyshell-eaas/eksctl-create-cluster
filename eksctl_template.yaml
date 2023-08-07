@@ -15,7 +15,7 @@ iam:
 managedNodeGroups:
   - name: dev-ng-1-workers
     labels: { role: workers }
-    instanceType: c5.xlarge # Please visit https://instances.vantage.sh/ to check all available instance sizes
+    instanceType: t2.small # Please visit https://instances.vantage.sh/ to check all available instance sizes
     desiredCapacity: 1
 
 # add EBS CSI driver (as an addon)
