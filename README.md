@@ -8,7 +8,7 @@ scripts to quicky setup a K8s cluster using eksctl
 ```
 export AWS_PROFILE=asdfasdf
 export AWS_REGION=eu-west-1
-
+export EKS_KUBE_VERSION=1.25
 export EKS_CLUSTER_NAME=test-cluster-2
 ```
 
