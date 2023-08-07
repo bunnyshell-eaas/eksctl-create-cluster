@@ -2,6 +2,24 @@
 
 set -e
 
+# Function to check if a command is installed
+check_command() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+# Check if watch is installed
+if check_command "watch"; then
+  echo "watch is installed."
+else
+  echo "watch is not installed. Please install it using your package manager."
+fi
+
+# Check if jq is installed
+if check_command "jq"; then
+  echo "jq is installed."
+else
+  echo "jq is not installed. Please install it using your package manager."
+fi
 
 #create efs file system
 export FILE_SYSTEM_ID=$(aws efs create-file-system | jq --raw-output '.FileSystemId')
@@ -38,9 +56,21 @@ done
 
 # wait until all mount targets are available
 # if on Mac, install watch with:
-# brew install watch 
-watch "aws efs describe-mount-targets --file-system-id $FILE_SYSTEM_ID | jq --raw-output '.MountTargets[].LifeCycleState'"
+# brew install watch
+#watch "aws efs describe-mount-targets --file-system-id $FILE_SYSTEM_ID | jq --raw-output '.MountTargets[].LifeCycleState'"
+while true; do
+    # Run the aws command and store the output in a variable
+    output=$(aws efs describe-mount-targets --file-system-id $FILE_SYSTEM_ID | jq --raw-output '.MountTargets[].LifeCycleState')
 
+    # Check if all rows are available (LifeCycleState == "available")
+    if [[ $output == *"available"* ]]; then
+        echo "All mount targets are available."
+        break  # Exit the loop if all rows are available
+    fi
+    echo "Mount targets not available yet. "
+    # Wait for a few seconds before checking again
+    sleep 2
+done
 
 
 # add helm repo

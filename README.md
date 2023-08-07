@@ -6,10 +6,10 @@ scripts to quicky setup a K8s cluster using eksctl
 ### Export AWS and EKS varibles
 
 ```
-export AWS_PROFILE=asdfasdf
+export AWS_PROFILE=profile-name
 export AWS_REGION=eu-west-1
-export EKS_KUBE_VERSION=1.25
 export EKS_CLUSTER_NAME=test-cluster-2
+export EKS_KUBE_VERSION=1.27
 ```
 
 ### Tweak eksctl_template.yaml
@@ -32,6 +32,13 @@ This will take ~10 minutes, you need to wait.
 
 ```
 eksctl create cluster -f eksctl_final.yaml
+```
+
+### Add Cluster to your kubectl configuration.
+
+Add the cluster to your `kubectl` configuration by downloading the config from AWS using the following command:
+```
+aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
 ```
 
 ### Create the disk (EBS) storage class
@@ -57,7 +64,8 @@ This script will create an EFS file system (with a security group and a mount ta
 Next, it will install nfs-subdir-external-provisioner (via helm) and configure it to use the EFS.
 
 ```
-./configure.sh
+chmod +x configure_efs.sh
+sudo ./configure_efs.sh
 ```
 
 ### Finally, test EFS is working
