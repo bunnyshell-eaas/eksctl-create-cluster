@@ -3,7 +3,7 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  version: "1.25"
+  version: "$EKS_KUBE_VERSION" 
   name: $EKS_CLUSTER_NAME
   region: $AWS_REGION
 
@@ -15,7 +15,7 @@ iam:
 managedNodeGroups:
   - name: dev-ng-1-workers
     labels: { role: workers }
-    instanceType: c5.xlarge
+    instanceType: c5.xlarge # Please visit https://instances.vantage.sh/ to check all available instance sizes
     desiredCapacity: 1
 
 # add EBS CSI driver (as an addon)
