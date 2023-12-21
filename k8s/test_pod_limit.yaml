@@ -1,0 +1,29 @@
+# kubernetes deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-pod-limit
+  labels:
+    app: test-pod-limit
+spec:
+  replicas: 110
+  selector:
+    matchLabels:
+      app: test-pod-limit
+  template:
+    metadata:
+      labels:
+        app: test-pod-limit
+    spec:
+      containers:
+      - name: test-pod-limit
+        image: nginx
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 16Mi

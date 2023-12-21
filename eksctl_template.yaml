@@ -15,8 +15,10 @@ iam:
 managedNodeGroups:
   - name: dev-ng-1-workers
     labels: { role: workers }
-    instanceType: t2.small # Please visit https://instances.vantage.sh/ to check all available instance sizes
-    desiredCapacity: 1
+    #instanceType: t2.small # Please visit https://instances.vantage.sh/ to check all available instance sizes
+    instanceType: m5.large # m5.large is $73.0000 monthly per instance
+    desiredCapacity: 2
+    maxPodsPerNode: 110
 
 # add EBS CSI driver (as an addon)
 addons:
@@ -28,3 +30,9 @@ addons:
     certManager: false
     ebsCSIController: true
     efsCSIController: false
+
+# need to be able to run 110 pods per node    
+- name: vpc-cni
+  version: v1.15.4-eksbuild.1 # Please visit https://docs.aws.amazon.com/eks/latest/userguide/managing-vpc-cni.html to pick the right version
+  configurationValues: "{\"env\":{\"ENABLE_PREFIX_DELEGATION\":\"true\", \"ENABLE_POD_ENI\":\"true\", \"POD_SECURITY_GROUP_ENFORCING_MODE\":\"standard\"}}"
+  resolveConflicts: overwrite
