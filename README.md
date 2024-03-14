@@ -1,11 +1,12 @@
 # eksctl-create-cluster
+
 scripts to quicky setup a K8s cluster using eksctl
 
 ## How to use
 
 ### Export AWS and EKS varibles
 
-```
+```bash
 export AWS_PROFILE=profile-name
 export AWS_REGION=eu-west-1
 export EKS_CLUSTER_NAME=test-cluster-2
@@ -20,25 +21,24 @@ You might want to edit the managed node groups or add extra addons
 
 Substitute the env vars from the template file using this command:
 
-```
+```bash
 envsubst < eksctl_template.yaml > eksctl_final.yaml
 ```
-
 
 ### Create the cluster
 
 Generate the cluster using the generated config file.
 This will take ~10 minutes, you need to wait.
 
-```
+```bash
 eksctl create cluster -f eksctl_final.yaml
 ```
 
-### Add Cluster to your kubectl configuration.
+### Get the kubeconfig for the cluster
 
 Add the cluster to your `kubectl` configuration by downloading the config from AWS using the following command:
 
-```
+```bash
 export KUBECONFIG=$(pwd)/kubeconfig.yaml
 aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
 ```
@@ -47,30 +47,30 @@ aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
 
 Create the storage class:
 
-```
+```bash
 kubectl create -f k8s/sc_disk.yaml
 
 ```
 
 And test:
 
-```
+```bash
 kubectl create -f k8s/test_ebs.yaml
 kubectl get pvc
 ```
-
 
 ### Configure EFS storage
 
 This script will create an EFS file system (with a security group and a mount target).
 Next, it will install nfs-subdir-external-provisioner (via helm) and configure it to use the EFS.
 
-```
+```bash
 sh configure_efs.sh
 ```
 
 ### Finally, test EFS is working
-```
+
+```bash
 kubectl create -f k8s/test_efs.yaml
 kubectl get pvc
 ```
@@ -88,7 +88,6 @@ echo "cluster URL: ${CLUSTER_URL}"
 echo "certificate authority data: \n${CERT_DATA}\n"
 ```
 
-
 ### Allow access to other IAM users
 
 By default only the IAM user used to create the cluster will have access to cluster in the AWS console.
@@ -97,6 +96,7 @@ To grant other IAM users access to the cluster, use one of the two approaches
 #### Option 1: use eksctl
 
 Set these variables:
+
 ```bash
 # your AWS account ID
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-cli-pager)
@@ -105,7 +105,8 @@ AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-
 IAM_USER_NAME=test-eks-2024-03
 ```
 
-Run this command: 
+Run this command:
+
 ```bash
 eksctl create iamidentitymapping \
     --cluster $EKS_CLUSTER_NAME \
@@ -124,7 +125,7 @@ Manually edit the `aws-auth` configMap using this command.
 kubectl edit configMap aws-auth -n kube-system -o yaml
 ```
 
-and add/edit the `mapUpsers` section, replace `$AWS_ACCOUNT_ID`, `$IAM_USER_NAME` accordingly: 
+and add/edit the `mapUsers` section, replace `$AWS_ACCOUNT_ID`, `$IAM_USER_NAME` accordingly:
 
 ```yaml
 apiVersion: v1
@@ -154,6 +155,7 @@ bash cleanup.sh
 ```
 
 List all resources created outside of CloudFormation
+
 ```bash
 aws resourcegroupstaggingapi get-resources --tag-filters Key=for,Values=$EKS_CLUSTER_NAME
 ```
