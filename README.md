@@ -66,8 +66,7 @@ This script will create an EFS file system (with a security group and a mount ta
 Next, it will install nfs-subdir-external-provisioner (via helm) and configure it to use the EFS.
 
 ```
-chmod +x configure_efs.sh
-sh ./configure_efs.sh
+sh configure_efs.sh
 ```
 
 ### Finally, test EFS is working
@@ -81,12 +80,12 @@ kubectl get pvc
 Run this command to get the details needed to connect you new cluster to Bunnyshell:
 
 ```bash
-
-echo "cluster name: $EKS_CLUSTER_NAME\n"
-CERT_DATA=$(cat $KUBECONFIG | yq ".clusters[0].cluster.certificate-authority-data")
-echo "certificate authority data: \n$CERT_DATA\n"
 CLUSTER_URL=$(cat $KUBECONFIG | yq ".clusters[0].cluster.server")
-echo "cluster URL: $CLUSTER_URL"
+CERT_DATA=$(cat $KUBECONFIG | yq ".clusters[0].cluster.certificate-authority-data")
+
+echo "cluster name: ${EKS_CLUSTER_NAME}\n"
+echo "cluster URL: ${CLUSTER_URL}"
+echo "certificate authority data: \n${CERT_DATA}\n"
 ```
 
 
@@ -103,7 +102,7 @@ Set these variables:
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-cli-pager)
 
 # IAM account name that will have access to manage the cluster"
-IAM_USER_NAME=john
+IAM_USER_NAME=test-eks-2024-03
 ```
 
 Run this command: 
@@ -111,7 +110,7 @@ Run this command:
 eksctl create iamidentitymapping \
     --cluster $EKS_CLUSTER_NAME \
     --region $AWS_REGION \
-    --arn arn:aws:iam::$AWS_ACCOUNT_ID:user/$IAM_USER_NAME \
+    --arn arn:aws:iam::${AWS_ACCOUNT_ID}:user/${IAM_USER_NAME} \
     --group system:masters \
     --no-duplicate-arns \
     --username admin-user1
@@ -142,4 +141,19 @@ data:
       userarn: arn:aws:iam::$AWS_ACCOUNT_ID:user/$IAM_USER_NAME
       username: admin
 kind: ConfigMap
+```
+
+### Delete the cluster
+
+Run this command to delete the cluster.
+
+```bash
+eksctl delete cluster -f eksctl_final.yaml
+
+bash cleanup.sh
+```
+
+List all resources created outside of CloudFormation
+```bash
+aws resourcegroupstaggingapi get-resources --tag-filters Key=for,Values=$EKS_CLUSTER_NAME
 ```
