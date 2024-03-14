@@ -32,11 +32,17 @@ if ! check_command "sleep"; then
   exit 1
 fi
 
+# generate a cleanup script
+echo '#!/bin/bash' > cleanup.sh
+
+export RESOURCE_TAGS="Key=for,Value=$EKS_CLUSTER_NAME"
+
 #create efs file system
-export FILE_SYSTEM_ID=$(aws efs create-file-system --output json --no-cli-pager | jq --raw-output '.FileSystemId')
+export FILE_SYSTEM_ID=$(aws efs create-file-system --output json --no-cli-pager --tags $RESOURCE_TAGS | jq --raw-output '.FileSystemId')
 echo "Created EFS file system with ID: $FILE_SYSTEM_ID"
 echo "to delete the EFS file system, run the following command:"
 echo "aws efs delete-file-system --file-system-id $FILE_SYSTEM_ID"
+echo "aws efs delete-file-system --file-system-id $FILE_SYSTEM_ID" >> cleanup.sh
 echo ""
 
 
@@ -62,11 +68,16 @@ export CIDR_BLOCK=$(aws ec2 describe-vpcs --vpc-ids $VPC_ID --query "Vpcs[].Cidr
 # create a security group for the EFS mount targets
 MOUNT_TARGET_GROUP_NAME="eks-efs-group-${EKS_CLUSTER_NAME}"
 MOUNT_TARGET_GROUP_DESC="NFS access to EFS from EKS worker nodes"
-MOUNT_TARGET_GROUP_ID=$(aws ec2 create-security-group --group-name $MOUNT_TARGET_GROUP_NAME --description "$MOUNT_TARGET_GROUP_DESC" --vpc-id $VPC_ID  --output json --no-cli-pager | jq --raw-output '.GroupId')
+# MOUNT_TARGET_GROUP_ID=$(aws ec2 create-security-group --group-name $MOUNT_TARGET_GROUP_NAME --description "$MOUNT_TARGET_GROUP_DESC" --vpc-id $VPC_ID  --tag-specifications 'ResourceType=security-group,Tags=[{Key=for,Value=$EKS_CLUSTER_NAME}]' $RESOURCE_TAGS --output json --no-cli-pager | jq --raw-output '.GroupId')
+# echo "aws ec2 create-security-group --group-name $MOUNT_TARGET_GROUP_NAME --description '$MOUNT_TARGET_GROUP_DESC' --vpc-id $VPC_ID  --tag-specifications 'ResourceType=security-group,Tags=[{Key=for,Value="$EKS_CLUSTER_NAME"}]' --output json --no-cli-pager "
+MOUNT_TARGET_GROUP_ID=$(aws ec2 create-security-group --group-name $MOUNT_TARGET_GROUP_NAME --description "$MOUNT_TARGET_GROUP_DESC" --vpc-id $VPC_ID  \
+    --tag-specifications "ResourceType=security-group,Tags=[{Key=for,Value=$EKS_CLUSTER_NAME}]" \
+    --output json --no-cli-pager | jq --raw-output '.GroupId')
 aws ec2 authorize-security-group-ingress --group-id $MOUNT_TARGET_GROUP_ID --protocol tcp --port 2049 --cidr $CIDR_BLOCK --no-cli-pager
 echo "Created security group for EFS mount targets with ID: $MOUNT_TARGET_GROUP_ID"
 echo "to delete the security group, run the following command:"
 echo "aws ec2 delete-security-group --group-id $MOUNT_TARGET_GROUP_ID"
+echo "aws ec2 delete-security-group --group-id $MOUNT_TARGET_GROUP_ID" >> cleanup.sh
 echo ""
 
 # The following set of commands identifies the public subnets in your cluster VPC and creates a mount target in each one of them 
@@ -83,6 +94,7 @@ do
     echo "created mount target $TMP_ID in " $subnet
     echo "to delete the mount target, run the following command:"
     echo "aws efs delete-mount-target --mount-target-id $TMP_ID"
+    echo "aws efs delete-mount-target --mount-target-id $TMP_ID" >> cleanup.sh
     echo ""
 done
 
@@ -108,11 +120,11 @@ done
 helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
 
 # install helm chart
-helm install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
+helm upgrade nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
     --set nfs.server=$EFS_DNS_NAME \
     --set nfs.path=/ \
     --set storageClass.name=bns-network-sc
-
+    --install
 
 echo "Waiting for NFS subdir provisioner to be ready..."
 kubectl wait --for=condition=Ready pod --timeout=300s -l  app=nfs-subdir-external-provisioner
