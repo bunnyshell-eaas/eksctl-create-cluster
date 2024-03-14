@@ -76,6 +76,20 @@ kubectl create -f k8s/test_efs.yaml
 kubectl get pvc
 ```
 
+### Connect to Bunnyshell
+
+Run this command to get the details needed to connect you new cluster to Bunnyshell:
+
+```bash
+
+echo "cluster name: $EKS_CLUSTER_NAME\n"
+CERT_DATA=$(cat $KUBECONFIG | yq ".clusters[0].cluster.certificate-authority-data")
+echo "certificate authority data: \n$CERT_DATA\n"
+CLUSTER_URL=$(cat $KUBECONFIG | yq ".clusters[0].cluster.server")
+echo "cluster URL: $CLUSTER_URL"
+```
+
+
 ### Allow access to other IAM users
 
 By default only the IAM user used to create the cluster will have access to cluster in the AWS console.
