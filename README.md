@@ -54,7 +54,7 @@ Set these variables:
 # your AWS account ID
 export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-cli-pager)
 
-# IAM account name that will have access to manage the cluster"
+# set this to the IAM account name that you will use to connect the cluster to Bunnyshell (or other IAM user you wish to grant access to the cluster)
 export IAM_USER_NAME=bunnyshell_user
 ```
 
