@@ -1,2 +1,3 @@
 cleanup.sh
 eksctl_final.yaml
+kubeconfig*
