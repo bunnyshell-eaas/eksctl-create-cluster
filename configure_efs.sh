@@ -123,7 +123,7 @@ helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/
 helm upgrade nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
     --set nfs.server=$EFS_DNS_NAME \
     --set nfs.path=/ \
-    --set storageClass.name=bns-network-sc
+    --set storageClass.name=bns-network-sc \
     --install
 
 echo "Waiting for NFS subdir provisioner to be ready..."
