@@ -15,10 +15,20 @@ iam:
 managedNodeGroups:
   - name: dev-ng-1-workers
     labels: { role: workers }
-    #instanceType: t2.small # Please visit https://instances.vantage.sh/ to check all available instance sizes
-    instanceType: m5.large # m5.large is $73.0000 monthly per instance
+    # edit-this
+    # Please visit https://instances.vantage.sh/ to check all available instance sizes
+    # m5.large is $73.0000 monthly per instance
+    instanceType: m5.large
+    
+    # edit-this
     desiredCapacity: 2
     maxPodsPerNode: 110
+    # volumeSize: 100
+    # volumeType: gp2
+    
+    # edit-this
+    # uncomment the following line to enable encryption at rest for the node group
+    # volumeEncrypted: true
 
 # add EBS CSI driver (as an addon)
 addons:
@@ -33,6 +43,8 @@ addons:
 
 # need to be able to run 110 pods per node    
 - name: vpc-cni
-  version: v1.15.4-eksbuild.1 # Please visit https://docs.aws.amazon.com/eks/latest/userguide/managing-vpc-cni.html to pick the right version
+  # # Please visit https://docs.aws.amazon.com/eks/latest/userguide/managing-vpc-cni.html to pick the right version
+  version: v1.17.1-eksbuild.1
+  
   configurationValues: "{\"env\":{\"ENABLE_PREFIX_DELEGATION\":\"true\", \"ENABLE_POD_ENI\":\"true\", \"POD_SECURITY_GROUP_ENFORCING_MODE\":\"standard\"}}"
   resolveConflicts: overwrite
