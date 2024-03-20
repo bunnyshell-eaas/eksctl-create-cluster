@@ -10,12 +10,18 @@ scripts to quicky setup a K8s cluster using eksctl
 export AWS_PROFILE=profile-name
 export AWS_REGION=eu-west-1
 export EKS_CLUSTER_NAME=test-cluster-2
-export EKS_KUBE_VERSION=1.27
+export EKS_KUBE_VERSION=1.29
 ```
 
 ### Tweak eksctl_template.yaml
 
-You might want to edit the managed node groups or add extra addons
+You want to edit template to:
+
+- enable/disable encryption at rest for the node group instances (not the PVs)
+- set number of nodes and node size
+- add other node groups
+
+Edit the template, especially the sections below `# edit-this` comments
 
 ### Generate the eksctl config file
 
@@ -34,64 +40,11 @@ This will take ~10 minutes, you need to wait.
 eksctl create cluster -f eksctl_final.yaml
 ```
 
-### Get the kubeconfig for the cluster
-
-Add the cluster to your `kubectl` configuration by downloading the config from AWS using the following command:
-
-```bash
-export KUBECONFIG=$(pwd)/kubeconfig.yaml
-aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
-```
-
-### Create the disk (EBS) storage class
-
-Create the storage class:
-
-```bash
-kubectl create -f k8s/sc_disk.yaml
-
-```
-
-And test:
-
-```bash
-kubectl create -f k8s/test_ebs.yaml
-kubectl get pvc
-```
-
-### Configure EFS storage
-
-This script will create an EFS file system (with a security group and a mount target).
-Next, it will install nfs-subdir-external-provisioner (via helm) and configure it to use the EFS.
-
-```bash
-sh configure_efs.sh
-```
-
-### Finally, test EFS is working
-
-```bash
-kubectl create -f k8s/test_efs.yaml
-kubectl get pvc
-```
-
-### Connect to Bunnyshell
-
-Run this command to get the details needed to connect you new cluster to Bunnyshell:
-
-```bash
-CLUSTER_URL=$(cat $KUBECONFIG | yq ".clusters[0].cluster.server")
-CERT_DATA=$(cat $KUBECONFIG | yq ".clusters[0].cluster.certificate-authority-data")
-
-echo "cluster name: ${EKS_CLUSTER_NAME}\n"
-echo "cluster URL: ${CLUSTER_URL}"
-echo "certificate authority data: \n${CERT_DATA}\n"
-```
-
-### Allow access to other IAM users
+### Grant other IAM users access to the cluster
 
 By default only the IAM user used to create the cluster will have access to cluster in the AWS console.
-To grant other IAM users access to the cluster, use one of the two approaches
+If the user you will use to connect the cluster to Bunnyshell is not the user used to create the cluster, you need to grant access to this extra user.
+To grant other IAM users access to the cluster, use one of the two approaches:
 
 #### Option 1: use eksctl
 
@@ -99,10 +52,10 @@ Set these variables:
 
 ```bash
 # your AWS account ID
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-cli-pager)
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-cli-pager)
 
 # IAM account name that will have access to manage the cluster"
-IAM_USER_NAME=test-eks-2024-03
+export IAM_USER_NAME=bunnyshell_user
 ```
 
 Run this command:
@@ -142,6 +95,68 @@ data:
       userarn: arn:aws:iam::$AWS_ACCOUNT_ID:user/$IAM_USER_NAME
       username: admin
 kind: ConfigMap
+```
+
+
+### Get the kubeconfig.yaml for the cluster
+
+Set the value of KUBECONFIG variable to the path of the file where you want to store your `kubeconfig.yaml`, then export with `aws eks update-kubeconfig` 
+
+```bash
+export KUBECONFIG=$(pwd)/kubeconfig.yaml
+aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+```
+
+### Connect the cluster to Bunnyshell
+
+Run this command to get the details needed to connect you new cluster to Bunnyshell:
+
+```bash
+CLUSTER_URL=$(cat $KUBECONFIG | yq ".clusters[0].cluster.server")
+CERT_DATA=$(cat $KUBECONFIG | yq ".clusters[0].cluster.certificate-authority-data")
+
+echo "\nConnect to Bunnyshell using these values:" \
+    && echo "cluster name: ${EKS_CLUSTER_NAME}" \
+    && echo "cluster URL: ${CLUSTER_URL}" \
+    && echo "certificate authority data: \n${CERT_DATA}"
+```
+
+### (OPTIONAL) Configure storage for the cluster
+
+You can skip this section if you use the Bunnyshell Volumes Add-on to create volumes on this cluster.
+
+#### 1. Create the disk (EBS) storage class
+
+Create the storage class:
+
+```bash
+kubectl create -f k8s/sc_disk.yaml
+
+```
+
+And test:
+
+```bash
+kubectl create -f k8s/test_ebs.yaml
+kubectl get pvc
+```
+
+#### 2. Configure EFS storage
+
+You can skip this step if you use the Bunnyshell Volumes Add-on to create volumes on this cluster.
+
+This script will create an EFS file system (with a security group and a mount target).
+Next, it will install nfs-subdir-external-provisioner (via helm) and configure it to use the EFS.
+
+```bash
+sh configure_efs.sh
+```
+
+Finally, test EFS is working:
+
+```bash
+kubectl create -f k8s/test_efs.yaml
+kubectl get pvc
 ```
 
 ### Delete the cluster
