@@ -11,6 +11,14 @@ metadata:
 iam:
   withOIDC: true
 
+vpc:
+  nat:
+    # each NAT Gateway costs $32.00 monthly. HighlyAvailable is $96.00 monthly
+    # if you need to control the egress IP address of pods, you need to set it to Single or HighlyAvailable
+    # if you don't need to control the egress IP address of pods, you can set it to Disable and save $32.00 monthly
+    gateway: Single # other options: Disable, Single (default), HighlyAvailable
+
+
 # add managed group for worker nodes
 managedNodeGroups:
   - name: dev-ng-1-workers
@@ -29,6 +37,9 @@ managedNodeGroups:
     # edit-this
     # uncomment the following line to enable encryption at rest for the node group
     # volumeEncrypted: true
+    # privateNetworking: true => if you want to use private networking for nodes (and control egress IP address of pods)
+    # privateNetworking: true requires vpc.net.gateway to be set to Single or HighlyAvailable
+    privateNetworking: true
 
 # add EBS CSI driver (as an addon)
 addons:
