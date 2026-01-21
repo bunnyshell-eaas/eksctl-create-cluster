@@ -1,176 +1,194 @@
-# eksctl-create-cluster
+# EKS Cluster Setup with eksctl
 
-scripts to quicky setup a K8s cluster using eksctl
+Scripts to quickly setup a Kubernetes cluster on AWS using `eksctl`.
 
-## How to use
+## 1. Prerequisites & Environment Variables
 
-### Export AWS and EKS varibles
+Export the necessary AWS and EKS variables. Choose either your local profile or direct credentials.
 
 ```bash
-export AWS_PROFILE=profile-name
 export AWS_REGION=eu-west-1
-export EKS_CLUSTER_NAME=test-cluster-2
-export EKS_KUBE_VERSION=1.29
+export EKS_CLUSTER_NAME=test-cluster-1
+export EKS_KUBE_VERSION=1.34
+
+# Option A: Use a local AWS Profile
+export AWS_PROFILE=profile-name
+
+# Option B: Use manual credentials
+export AWS_ACCESS_KEY_ID="XXXX"
+export AWS_SECRET_ACCESS_KEY="XXXX"
+export AWS_SESSION_TOKEN="XXXX" # Optional
 ```
 
-### Tweak eksctl_template.yaml
+### Tools Management (Optional: mise)
 
-You want to edit template to:
+This repository includes a `mise.toml` to manage required tools (`eksctl`, `kubectl`, `helm`, `jq`, `yq`, etc.). If you have [mise](https://mise.jenv.nz/) installed, you can simply run:
 
-- enable/disable encryption at rest for the node group instances (not the PVs)
-- set number of nodes and node size
-- add other node groups
+```bash
+# Install mise if you haven't already
+# curl https://mise.run | sh
 
-Edit the template, especially the sections below `# edit-this` comments
+# Install all required tools
+mise install
 
-### Generate the eksctl config file
+# The tools will be automatically available in your shell when you are in this directory.
+```
 
-Substitute the env vars from the template file using this command:
+---
 
+## 2. Cluster Configuration
+
+### Tweak the Template
+Edit `eksctl_template.yaml` to customize your cluster requirements:
+- Enable/disable encryption at rest for node groups.
+- Set instance sizes and desired capacity (nodes).
+- Add or modify managed node groups.
+
+Search for `# edit-this` comments in the template for quick changes.
+
+### Generate Final Manifest
+Substitute the environment variables into the template:
 ```bash
 envsubst < eksctl_template.yaml > eksctl_final.yaml
 ```
 
-### Create the cluster
+---
 
-Generate the cluster using the generated config file.
-This will take ~10 minutes, you need to wait.
+## 3. Deployment
 
+### Create the Cluster
+This process typically takes ~15 minutes.
 ```bash
 eksctl create cluster -f eksctl_final.yaml
 ```
 
-### Grant other IAM users access to the cluster
-
-By default only the IAM user used to create the cluster will have access to cluster in the AWS console.
-If the user you will use to connect the cluster to Bunnyshell is not the user used to create the cluster, you need to grant access to this extra user.
-To grant other IAM users access to the cluster, use one of the two approaches:
-
-#### Option 1: use eksctl
-
-Set these variables:
-
+### Get Kubeconfig
+Store your cluster credentials in a local file:
 ```bash
-# your AWS account ID
-export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-cli-pager)
-
-# set this to the IAM account name that you will use to connect the cluster to Bunnyshell (or other IAM user you wish to grant access to the cluster)
-export IAM_USER_NAME=__RELEVANT-IAM-USER-NAME__
+export KUBECONFIG=$(pwd)/kubeconfig.yaml
+aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
 ```
 
-Run this command:
+---
+
+## 4. Access Management (IAM)
+
+By default, only the IAM entity that created the cluster has access to it. To allow other users (like a dedicated Bunnyshell service account) to manage the cluster, follow these steps:
+
+### Step 4.1: Create the IAM User
+You can create the user via the AWS Console or the CLI.
+
+#### Option A: CLI (Fastest)
+```bash
+export IAM_USER_NAME=bunnyshell-test-cluster-1
+
+# 1. Create the user
+aws iam create-user --user-name $IAM_USER_NAME
+
+# 2. Attach required policies
+aws iam attach-user-policy --user-name $IAM_USER_NAME --policy-arn arn:aws:iam::aws:policy/AmazonEBSCSIDriverPolicy
+aws iam attach-user-policy --user-name $IAM_USER_NAME --policy-arn arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+aws iam attach-user-policy --user-name $IAM_USER_NAME --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+
+# 3. Create Access Keys (Save the output!)
+aws iam create-access-key --user-name $IAM_USER_NAME
+```
+
+#### Option B: AWS Console
+1. **IAM > Users > Create User**: Name it `bunnyshell-test-cluster-1`.
+2. **Attach Policies**: `AmazonEBSCSIDriverPolicy`, `AmazonEKSClusterPolicy`, and `AdministratorAccess`.
+3. **Security Credentials**: Create an "Access key" for a "Third-party service".
+
+---
+
+### Step 4.2: Grant Cluster Access (Mapping)
+Creating the AWS user is not enough; you must map the IAM ARN to a Kubernetes group.
 
 ```bash
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export IAM_USER_NAME=bunnyshell-test-cluster-1
+
 eksctl create iamidentitymapping \
     --cluster $EKS_CLUSTER_NAME \
     --region $AWS_REGION \
     --arn arn:aws:iam::${AWS_ACCOUNT_ID}:user/${IAM_USER_NAME} \
     --group system:masters \
     --no-duplicate-arns \
-    --username admin-user1
+    --username $IAM_USER_NAME
 ```
 
-#### Option 2: Manually Edit the ConfigMap
-
-Manually edit the `aws-auth` configMap using this command.
-
+### Option 2: Manually Edit ConfigMap
 ```bash
-kubectl edit configMap aws-auth -n kube-system -o yaml
+kubectl edit configMap aws-auth -n kube-system
 ```
-
-and add/edit the `mapUsers` section, replace `$AWS_ACCOUNT_ID`, `$IAM_USER_NAME` accordingly:
-
+Add to `mapUsers`:
 ```yaml
-apiVersion: v1
-data:
-  mapRoles: |
-    - groups:
-      - system:bootstrappers
-      - system:nodes
-      rolearn: arn:aws:iam::967682345001:role/eksctl-ao-test-2024-03-nodegroup-d-NodeInstanceRole-HOab7BogHnEV
-      username: system:node:{{EC2PrivateDNSName}}
-  mapUsers: |
-    - groups:
+mapUsers: |
+  - groups:
       - system:masters
-      userarn: arn:aws:iam::$AWS_ACCOUNT_ID:user/$IAM_USER_NAME
-      username: admin
-kind: ConfigMap
+    userarn: arn:aws:iam::123456789012:user/your-user
+    username: admin
 ```
 
+---
 
-### Get the kubeconfig.yaml for the cluster
+## 5. Storage Configuration
 
-Set the value of KUBECONFIG variable to the path of the file where you want to store your `kubeconfig.yaml`, then export with `aws eks update-kubeconfig` 
-
-```bash
-export KUBECONFIG=$(pwd)/kubeconfig.yaml
-aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
-```
-
-### Connect the cluster to Bunnyshell
-
-Run this command to get the details needed to connect you new cluster to Bunnyshell:
-
-```bash
-CLUSTER_URL=$(cat $KUBECONFIG | yq ".clusters[0].cluster.server")
-CERT_DATA=$(cat $KUBECONFIG | yq ".clusters[0].cluster.certificate-authority-data")
-
-echo "\nConnect to Bunnyshell using these values:" \
-    && echo "cluster name: ${EKS_CLUSTER_NAME}" \
-    && echo "cluster URL: ${CLUSTER_URL}" \
-    && echo "certificate authority data: \n${CERT_DATA}"
-```
-
-### (OPTIONAL) Configure storage for the cluster
-
-You can skip this section if you use the Bunnyshell Volumes Add-on to create volumes on this cluster.
-
-#### 1. Create the disk (EBS) storage class
-
-Create the storage class:
-
+### Step 1: Create the Primary Disk (gp3) Storage Class
+This creates a modern `gp3` storage class and sets it as the cluster default.
 ```bash
 kubectl create -f k8s/sc_disk.yaml
-
 ```
 
-And test:
-
+### Step 2: Update Legacy gp2
+Update the existing legacy `gp2` class to use the modern CSI driver and `gp3` volumes for backward compatibility.
 ```bash
-kubectl create -f k8s/test_ebs.yaml
-kubectl get pvc
+kubectl delete sc gp2  # Delete first
+kubectl apply -f k8s/update_gp2.yaml
 ```
 
-#### 2. Configure EFS storage
 
-You can skip this step if you use the Bunnyshell Volumes Add-on to create volumes on this cluster.
 
-This script will create an EFS file system (with a security group and a mount target).
-Next, it will install nfs-subdir-external-provisioner (via helm) and configure it to use the EFS.
-
+### Step 3: Test Storage
 ```bash
-sh configure_efs.sh
+kubectl apply -f k8s/test_ebs.yaml  # Creates a pvc
+kubectl apply -f k8s/test_ebs_withpod.yaml
+kubectl get pvc # Should be bound
+kubectl delete -f k8s/test_ebs_withpod.yaml
+kubectl delete -f k8s/test_ebs.yaml
 ```
 
-Finally, test EFS is working:
-
+### Step 4: (Optional) EFS Network Storage
+For multi-node shared storage (ReadWriteMany):
 ```bash
+bash configure_efs.sh
+
+# Test EFS
 kubectl create -f k8s/test_efs.yaml
 kubectl get pvc
 ```
 
-### Delete the cluster
+---
 
-Run this command to delete the cluster.
+## 6. Bunnyshell Connection
 
+Retrieve the details needed to connect your cluster to the Bunnyshell platform:
 ```bash
-eksctl delete cluster -f eksctl_final.yaml
+CLUSTER_URL=$(yq ".clusters[0].cluster.server" < $KUBECONFIG)
+CERT_DATA=$(yq ".clusters[0].cluster.certificate-authority-data" < $KUBECONFIG)
 
-bash cleanup.sh
+echo "Connect to Bunnyshell using these values:"
+echo "Cluster Name: ${EKS_CLUSTER_NAME}"
+echo "Cluster URL: ${CLUSTER_URL}"
+echo "CA Data: ${CERT_DATA}"
 ```
 
-List all resources created outside of CloudFormation
+---
 
+## 7. Cleanup
+
+To avoid ongoing AWS costs, delete all resources when finished:
 ```bash
-aws resourcegroupstaggingapi get-resources --tag-filters Key=for,Values=$EKS_CLUSTER_NAME
+eksctl delete cluster -f eksctl_final.yaml
+bash cleanup.sh
 ```

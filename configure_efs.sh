@@ -26,12 +26,17 @@ if ! check_command "jq"; then
   exit 1
 fi
 
-# Check if jq is installed
+# Check if sleep is installed
 if ! check_command "sleep"; then
   echo "sleep command is not installed. Please install it using your package manager."
   exit 1
 fi
 
+# Check if helm is installed
+if ! check_command "helm"; then
+  echo "helm command is not installed. Please install it using your package manager."
+  exit 1
+fi
 # generate a cleanup script
 echo '#!/bin/bash' > cleanup.sh
 
@@ -127,6 +132,6 @@ helm upgrade nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs
     --install
 
 echo "Waiting for NFS subdir provisioner to be ready..."
-kubectl wait --for=condition=Ready pod --timeout=300s -l  app=nfs-subdir-external-provisioner
+kubectl wait --for=condition=Ready pod --timeout=600s -l  app=nfs-subdir-external-provisioner
 
 echo "NFS subdir provisioner is ready."

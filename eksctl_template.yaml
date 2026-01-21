@@ -26,6 +26,7 @@ managedNodeGroups:
     # edit-this
     # Please visit https://instances.vantage.sh/ to check all available instance sizes
     # m5.large is $73.0000 monthly per instance
+    # t3a.medium is $42.0000 monthly per instance
     instanceType: m5.large
     
     # edit-this
@@ -36,7 +37,7 @@ managedNodeGroups:
     
     # edit-this
     # uncomment the following line to enable encryption at rest for the node group
-    # volumeEncrypted: true
+    volumeEncrypted: true
     # privateNetworking: true => if you want to use private networking for nodes (and control egress IP address of pods)
     # privateNetworking: true requires vpc.net.gateway to be set to Single or HighlyAvailable
     privateNetworking: true
@@ -54,8 +55,6 @@ addons:
 
 # need to be able to run 110 pods per node    
 - name: vpc-cni
-  # # Please visit https://docs.aws.amazon.com/eks/latest/userguide/managing-vpc-cni.html to pick the right version
-  version: v1.17.1-eksbuild.1
-  
+  # version: latest # Omit to automatically get the latest compatible version for $EKS_KUBE_VERSION
   configurationValues: "{\"env\":{\"ENABLE_PREFIX_DELEGATION\":\"true\", \"ENABLE_POD_ENI\":\"true\", \"POD_SECURITY_GROUP_ENFORCING_MODE\":\"standard\"}}"
   resolveConflicts: overwrite
