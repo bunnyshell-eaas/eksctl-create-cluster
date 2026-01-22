@@ -45,12 +45,14 @@ managedNodeGroups:
     # privateNetworking: true requires vpc.net.gateway to be set to Single or HighlyAvailable
     privateNetworking: true
 
-# add EBS CSI driver (as an addon)
+# add EKS Pod Identity Agent (required for other addons using Pod Identity) and EBS CSI driver
 addons:
+- name: eks-pod-identity-agent
 - name: aws-ebs-csi-driver
   resolveConflicts: preserve
   podIdentityAssociations:
-    - serviceAccountName: ebs-csi-controller-sa
+    - namespace: kube-system
+      serviceAccountName: ebs-csi-controller-sa
       permissionPolicyARNs: [arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy]
 
 # need to be able to run 110 pods per node    
@@ -59,5 +61,6 @@ addons:
   configurationValues: "{\"env\":{\"ENABLE_PREFIX_DELEGATION\":\"true\", \"ENABLE_POD_ENI\":\"true\", \"POD_SECURITY_GROUP_ENFORCING_MODE\":\"standard\"}}"
   resolveConflicts: overwrite
   podIdentityAssociations:
-    - serviceAccountName: aws-node
+    - namespace: kube-system
+      serviceAccountName: aws-node
       permissionPolicyARNs: [arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy]
