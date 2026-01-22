@@ -1,0 +1,7 @@
+[tools]
+awscli = { version = "latest", symlink_bins = "true" }
+eksctl = "latest"
+helm = "latest"
+jq = "latest"
+kubectl = "latest"
+yq = "latest"

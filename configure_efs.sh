@@ -26,23 +26,25 @@ if ! check_command "jq"; then
   exit 1
 fi
 
-# Check if jq is installed
+# Check if sleep is installed
 if ! check_command "sleep"; then
   echo "sleep command is not installed. Please install it using your package manager."
   exit 1
 fi
 
-# generate a cleanup script
-echo '#!/bin/bash' > cleanup.sh
+# Check if helm is installed
+if ! check_command "helm"; then
+  echo "helm command is not installed. Please install it using your package manager."
+  exit 1
+fi
+
 
 export RESOURCE_TAGS="Key=for,Value=$EKS_CLUSTER_NAME"
 
 #create efs file system
 export FILE_SYSTEM_ID=$(aws efs create-file-system --output json --no-cli-pager --tags $RESOURCE_TAGS | jq --raw-output '.FileSystemId')
 echo "Created EFS file system with ID: $FILE_SYSTEM_ID"
-echo "to delete the EFS file system, run the following command:"
-echo "aws efs delete-file-system --file-system-id $FILE_SYSTEM_ID"
-echo "aws efs delete-file-system --file-system-id $FILE_SYSTEM_ID" >> cleanup.sh
+echo "to delete the EFS file system, run: bash cleanup.sh"
 echo ""
 
 
@@ -75,9 +77,7 @@ MOUNT_TARGET_GROUP_ID=$(aws ec2 create-security-group --group-name $MOUNT_TARGET
     --output json --no-cli-pager | jq --raw-output '.GroupId')
 aws ec2 authorize-security-group-ingress --group-id $MOUNT_TARGET_GROUP_ID --protocol tcp --port 2049 --cidr $CIDR_BLOCK --no-cli-pager
 echo "Created security group for EFS mount targets with ID: $MOUNT_TARGET_GROUP_ID"
-echo "to delete the security group, run the following command:"
-echo "aws ec2 delete-security-group --group-id $MOUNT_TARGET_GROUP_ID"
-echo "aws ec2 delete-security-group --group-id $MOUNT_TARGET_GROUP_ID" >> cleanup.sh
+echo "to delete the security group, run: bash cleanup.sh"
 echo ""
 
 # The following set of commands identifies the public subnets in your cluster VPC and creates a mount target in each one of them 
@@ -92,9 +92,7 @@ do
     TMP_ID=$(aws efs create-mount-target --file-system-id $FILE_SYSTEM_ID --subnet-id $subnet --security-groups $MOUNT_TARGET_GROUP_ID --no-cli-pager | jq --raw-output '.MountTargetId')
     #echo $TMP_ID
     echo "created mount target $TMP_ID in " $subnet
-    echo "to delete the mount target, run the following command:"
-    echo "aws efs delete-mount-target --mount-target-id $TMP_ID"
-    echo "aws efs delete-mount-target --mount-target-id $TMP_ID" >> cleanup.sh
+    echo "to delete the mount target, run: bash cleanup.sh"
     echo ""
 done
 
@@ -127,6 +125,6 @@ helm upgrade nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs
     --install
 
 echo "Waiting for NFS subdir provisioner to be ready..."
-kubectl wait --for=condition=Ready pod --timeout=300s -l  app=nfs-subdir-external-provisioner
+kubectl wait --for=condition=Ready pod --timeout=600s -l  app=nfs-subdir-external-provisioner
 
 echo "NFS subdir provisioner is ready."
