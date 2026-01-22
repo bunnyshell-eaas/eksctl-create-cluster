@@ -86,7 +86,7 @@ export IAM_USER_NAME=bunnyshell-test-cluster-1
 aws iam create-user --user-name $IAM_USER_NAME
 
 # 2. Attach required policies
-aws iam attach-user-policy --user-name $IAM_USER_NAME --policy-arn arn:aws:iam::aws:policy/AmazonEBSCSIDriverPolicy
+aws iam attach-user-policy --user-name $IAM_USER_NAME --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
 aws iam attach-user-policy --user-name $IAM_USER_NAME --policy-arn arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
 aws iam attach-user-policy --user-name $IAM_USER_NAME --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 
@@ -166,6 +166,7 @@ bash configure_efs.sh
 # Test EFS
 kubectl create -f k8s/test_efs.yaml
 kubectl get pvc
+kubectl delete -f k8s/test_efs.yaml   # Delete pvc
 ```
 
 ---

@@ -7,6 +7,9 @@ metadata:
   name: $EKS_CLUSTER_NAME
   region: $AWS_REGION
 
+autoModeConfig:
+  enabled: false
+
 # enable IAM roles for service accounts and OIDC provider
 iam:
   withOIDC: true
@@ -46,15 +49,15 @@ managedNodeGroups:
 addons:
 - name: aws-ebs-csi-driver
   resolveConflicts: preserve
-  wellKnownPolicies:
-    autoScaler: false
-    awsLoadBalancerController: false
-    certManager: false
-    ebsCSIController: true
-    efsCSIController: false
+  podIdentityAssociations:
+    - serviceAccountName: ebs-csi-controller-sa
+      permissionPolicyARNs: [arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy]
 
 # need to be able to run 110 pods per node    
 - name: vpc-cni
   # version: latest # Omit to automatically get the latest compatible version for $EKS_KUBE_VERSION
   configurationValues: "{\"env\":{\"ENABLE_PREFIX_DELEGATION\":\"true\", \"ENABLE_POD_ENI\":\"true\", \"POD_SECURITY_GROUP_ENFORCING_MODE\":\"standard\"}}"
   resolveConflicts: overwrite
+  podIdentityAssociations:
+    - serviceAccountName: aws-node
+      permissionPolicyARNs: [arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy]
