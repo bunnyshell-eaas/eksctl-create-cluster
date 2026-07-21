@@ -21,6 +21,24 @@ vpc:
     # if you don't need to control the egress IP address of pods, you can set it to Disable and save $32.00 monthly
     gateway: Single # other options: Disable, Single (default), HighlyAvailable
 
+  # edit-this
+  # PIN THIS EXPLICITLY -- do not leave it unset. eksctl's default (when this
+  # is omitted) is to span the VPC/subnets across every AZ in the region (up
+  # to eksctl's own cap, often 3). If a Service:LoadBalancer NLB gets created
+  # later (e.g. ingress-nginx), it auto-provisions an endpoint in EVERY AZ the
+  # VPC/subnets span -- including ones with zero worker nodes. Since NLB
+  # cross-zone load balancing defaults to OFF, any connection landing on a
+  # node-less AZ's endpoint silently times out with ZERO trace in any
+  # application or ingress log (the connection never reaches a pod). This bit
+  # a real production cluster: eksctl created subnets across 3 AZs by default,
+  # nodegroup desiredCapacity was only 1-2, so at least one AZ was
+  # mathematically guaranteed to have no node -- and stayed that way
+  # silently for months until a hard-to-trace intermittent 522 forced the
+  # investigation. List exactly as many AZs here as you intend to actually
+  # run worker nodes in (see managedNodeGroups.availabilityZones below --
+  # keep the two lists identical).
+  availabilityZones: ["${AWS_REGION}a", "${AWS_REGION}b"]
+
 
 # add managed group for worker nodes
 managedNodeGroups:
@@ -31,13 +49,25 @@ managedNodeGroups:
     # m5.large is $73.0000 monthly per instance
     # t3a.medium is $42.0000 monthly per instance
     instanceType: m5.large
-    
+
+    # edit-this
+    # MUST match (or be a subset of) vpc.availabilityZones above. If you
+    # widen this later (or attach to an existing multi-AZ VPC instead, as a
+    # replica cluster might), you MUST also either raise desiredCapacity so
+    # every listed AZ actually gets a node, or explicitly enable NLB
+    # cross-zone load balancing on any LoadBalancer Service you create
+    # (`service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"`)
+    # -- see the full writeup and verification steps at
+    # https://github.com/GAlexandruD/eksctl-create-cluster (README) and the
+    # `eks-nlb-ingress-multi-az-gotchas` playbook in the knowledge base.
+    availabilityZones: ["${AWS_REGION}a", "${AWS_REGION}b"]
+
     # edit-this
     desiredCapacity: 2
     maxPodsPerNode: 110
     # volumeSize: 100
     # volumeType: gp2
-    
+
     # edit-this
     # uncomment the following line to enable encryption at rest for the node group
     volumeEncrypted: true
