@@ -46,6 +46,8 @@ Edit `eksctl_template.yaml` to customize your cluster requirements:
 
 Search for `# edit-this` comments in the template for quick changes.
 
+**⚠️ AZ/node-count mismatch = silent LB blackhole.** `vpc.availabilityZones` and `managedNodeGroups[].availabilityZones` must list the same AZs, and `desiredCapacity` must be enough that every listed AZ actually gets a node. If you later create a `Service:LoadBalancer` (e.g. ingress-nginx) with an NLB, it auto-provisions an endpoint in *every* AZ the VPC/subnets span — including ones with zero nodes — and NLB cross-zone load balancing defaults to **off**, so connections landing on a node-less AZ just time out with zero trace in any log. This bit a real cluster for months before an intermittent 522 forced the investigation. If you can't guarantee every AZ has a node, explicitly add `service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"` to any LoadBalancer Service you create as a safety net regardless.
+
 ### Generate Final Manifest
 Substitute the environment variables into the template:
 ```bash
